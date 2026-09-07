@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+
+# PyTorch Checkpoints & Artifacts
+models/*.pth
+models/*.pt
+models/*.onnx
+
+# Data & Large Archives (Ensure raw dataset is ignored from git tracking)
+DataSet/
+archive/
+
+# Results & Reports artifacts (keep .gitkeep if needed)
+reports/results/*.json
+!reports/results/.gitkeep
+reports/figures/*.png
+
+# IDE & OS Files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
