@@ -2,7 +2,8 @@
 PyTorch Training Engine for MediFusion.
 
 Implements clean, modular training and validation loops with support for:
-    - PyTorch Automatic Mixed Precision (AMP) via torch.cuda.amp.autocast and GradScaler
+    - Modern PyTorch 2.x Automatic Mixed Precision (AMP) via torch.amp.autocast and GradScaler
+    - Non-blocking GPU tensor transfers
     - Validation Macro ROC-AUC tracking
     - Learning rate scheduling via ReduceLROnPlateau
     - Checkpoint saving (latest_checkpoint.pth & best_checkpoint.pth)
@@ -17,7 +18,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
-from configs.config import OUTPUT_MODELS_DIR, DEVICE, USE_AMP, DEFAULT_THRESHOLD
+from configs.config import OUTPUT_MODELS_DIR, DEVICE, USE_AMP, DEFAULT_THRESHOLD, PIN_MEMORY
 from src.evaluation.metrics import calculate_multilabel_metrics
 
 
@@ -45,11 +46,17 @@ class Trainer:
         self.criterion = criterion
         self.optimizer = optimizer
         self.scheduler = scheduler
-        self.device = device
-        
-        # Disable AMP if CUDA is unavailable
-        self.use_amp = use_amp if (torch.cuda.is_available() and device != "cpu") else False
-        self.scaler = torch.cuda.amp.GradScaler(enabled=self.use_amp)
+        self.device = str(device)
+        self.device_type = "cuda" if "cuda" in self.device else "cpu"
+
+        # Disable AMP if CUDA is unavailable or running on CPU
+        self.use_amp = use_amp if (torch.cuda.is_available() and self.device_type == "cuda") else False
+
+        # Modern PyTorch 2.x AMP GradScaler with positional device argument
+        try:
+            self.scaler = torch.amp.GradScaler(self.device_type, enabled=self.use_amp)
+        except Exception:
+            self.scaler = torch.cuda.amp.GradScaler(enabled=self.use_amp)
 
         self.checkpoint_dir = Path(checkpoint_dir)
         self.experiment_name = experiment_name
@@ -57,6 +64,13 @@ class Trainer:
 
         self.best_val_macro_auc = -1.0
         self.best_epoch = 0
+
+    def _get_autocast_context(self):
+        """Helper to get modern PyTorch 2.x autocast context without deprecation warnings."""
+        try:
+            return torch.amp.autocast(self.device_type, enabled=self.use_amp)
+        except Exception:
+            return torch.cuda.amp.autocast(enabled=self.use_amp)
 
     def train_epoch(self) -> float:
         """
@@ -70,13 +84,13 @@ class Trainer:
         num_batches = len(self.train_loader)
 
         for batch in self.train_loader:
-            images = batch["image"].to(self.device)
-            targets = batch["target"].to(self.device)
+            images = batch["image"].to(self.device, non_blocking=PIN_MEMORY)
+            targets = batch["target"].to(self.device, non_blocking=PIN_MEMORY)
 
             self.optimizer.zero_grad()
 
             # Forward pass with AMP autocast
-            with torch.cuda.amp.autocast(enabled=self.use_amp):
+            with self._get_autocast_context():
                 logits = self.model(images)
                 loss = self.criterion(logits, targets)
 
@@ -116,10 +130,10 @@ class Trainer:
 
         with torch.no_grad():
             for batch in self.val_loader:
-                images = batch["image"].to(self.device)
-                targets = batch["target"].to(self.device)
+                images = batch["image"].to(self.device, non_blocking=PIN_MEMORY)
+                targets = batch["target"].to(self.device, non_blocking=PIN_MEMORY)
 
-                with torch.cuda.amp.autocast(enabled=self.use_amp):
+                with self._get_autocast_context():
                     logits = self.model(images)
                     loss = self.criterion(logits, targets)
 
@@ -153,12 +167,6 @@ class Trainer:
         """
         Save model, optimizer, scheduler, and scaler checkpoint.
 
-        Args:
-            epoch (int): Current epoch number.
-            val_macro_auc (float): Validation Macro ROC-AUC achieved.
-            is_best (bool): Whether this is the best checkpoint so far.
-            filename_prefix (str): Prefix string for checkpoint file.
-
         Returns:
             Path: Path to saved checkpoint file.
         """
@@ -173,7 +181,6 @@ class Trainer:
             "val_macro_auc": val_macro_auc,
         }
 
-        # Save latest checkpoint
         latest_path = self.checkpoint_dir / f"{self.experiment_name}_latest.pth"
         torch.save(checkpoint_dict, latest_path)
 
@@ -192,14 +199,6 @@ class Trainer:
     ) -> Dict[str, Any]:
         """
         Main training loop over multiple epochs.
-
-        Args:
-            epochs (int): Number of training epochs.
-            early_stopping_patience (int): Number of epochs to wait for improvement before early stopping.
-            disable_early_stopping (bool): If True, disables early stopping (e.g. for Experiment 0).
-
-        Returns:
-            Dict[str, Any]: Training history dictionary.
         """
         history = {
             "train_loss": [],
@@ -217,7 +216,6 @@ class Trainer:
             val_loss, val_metrics = self.validate_epoch()
             val_macro_auc = val_metrics.get("macro_roc_auc", 0.0)
 
-            # Handle NaN Macro AUC safely
             auc_display = val_macro_auc if not np.isnan(val_macro_auc) else 0.0
 
             history["train_loss"].append(train_loss)
@@ -232,14 +230,12 @@ class Trainer:
                 f"Val Macro AUC: {auc_display:.4f}"
             )
 
-            # Scheduler step monitoring Val Macro AUC if ReduceLROnPlateau
             if self.scheduler is not None:
                 if isinstance(self.scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
                     self.scheduler.step(auc_display)
                 else:
                     self.scheduler.step()
 
-            # Checkpoint tracking
             is_best = auc_display > self.best_val_macro_auc
             if is_best:
                 self.best_val_macro_auc = auc_display
@@ -250,7 +246,6 @@ class Trainer:
 
             self.save_checkpoint(epoch=epoch, val_macro_auc=auc_display, is_best=is_best)
 
-            # Early Stopping Check
             if not disable_early_stopping and patience_counter >= early_stopping_patience:
                 print(
                     f"\n[Early Stopping Triggered] Stopping early at epoch {epoch}. "
