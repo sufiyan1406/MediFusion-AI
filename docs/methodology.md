@@ -34,7 +34,7 @@ Our neural network output layer contains **14 output neurons**, corresponding ex
 - `No Finding` indicates a completely normal X-ray scan with zero detected abnormalities.
 - If we added `No Finding` as a 15th output neuron, it would create conflicting signals because `No Finding` is mathematically the logical negation of all 14 pathology neurons.
 - Instead, a normal scan is cleanly represented when **all 14 pathology output probabilities remain near 0.0** (target vector: `[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]`).
-- Each of the 14 output neurons produces an unnormalized raw logit $z_k$. Sigmoid activation $\sigma(z_k) = \frac{1}{1 + e^{-z_k}}$ is applied independently to each neuron, treating each disease as an independent binary classification question.
+- Each of the 14 output neurons produces an unnormalized raw logit $z_k$. Sigmoid activation $\sigma(z_k) = \frac{1}{1 + e^{-z_k}}$ is applied independently to each neuron during evaluation, treating each disease as an independent binary classification question.
 
 ---
 
@@ -57,37 +57,34 @@ Input (1 × 224 × 224 Grayscale Image)
 ```
 
 - **Weight Initialization:** Kaiming He Normal (`nn.init.kaiming_normal_`) for Conv2d and Linear layers; constant initialization for BatchNorm (`weight=1.0`, `bias=0.0`).
-- **Parameter Efficiency:** ~2,105,000 parameters (~8.4 MB), allowing rapid scratch training on 4GB VRAM local GPUs (RTX 2050).
+- **Parameter Efficiency:** 391,918 parameters (~0.39 MB), allowing rapid scratch training on 4GB VRAM local GPUs (RTX 2050) and Kaggle cloud GPUs.
 
 ---
 
-## 4. Baseline Training Configuration
+## 4. Evaluation Workflow & Strict Scientific Isolation Rule
 
-| Parameter | Configuration | Justification / Purpose |
-| :--- | :--- | :--- |
-| **Loss Function** | `BCEWithLogitsLoss()` | Combines Sigmoid + BCE using log-sum-exp trick for numerical stability. |
-| **Optimizer** | `AdamW` | Weight decay regularized Adam optimizer. |
-| **Learning Rate** | `1e-4` (0.0001) | Standard stable learning rate for Kaiming He initialized scratch CNNs. |
-| **Weight Decay** | `1e-4` (0.0001) | Regularizes weight norms, preventing overfitting. |
-| **Batch Size** | `16` | Fits comfortably within local RTX 2050 4GB VRAM footprint. |
-| **Max Epochs** | `15` | Baseline training epochs. |
-| **LR Scheduler** | `ReduceLROnPlateau` | Factor `0.5`, Patience `2`, monitoring Validation Macro ROC-AUC. |
-| **Early Stopping** | Patience `4` | Halts training if Validation Macro ROC-AUC stops improving. |
-| **Mixed Precision** | `torch.cuda.amp` | Accelerates GPU training and cuts VRAM usage by ~40–50%. |
+```
+TRAIN (73,916 images / 23,806 patients)
+   ↓
+VALIDATION (12,608 images / 4,202 patients)  ──► Select Best Checkpoint (val_macro_auc)
+   ↓
+LOCK MODEL CHECKPOINT (medcxrnet_baseline_best.pth)
+   ↓
+OFFICIAL TEST EVALUATION (25,596 images / 2,797 patients)
+   ↓
+FINAL BASELINE TEST METRICS (experiment_1_test_results.json)
+   ↓
+EXPERIMENT 2 (Tuning & Architectural Iterations)
+```
 
----
-
-## 5. Patient-Level Data Splitting & Leakage Prevention
-A critical pitfall in medical image deep learning is **Data Leakage across Patient IDs**.
-
-### Why Patient-Level Grouping Matters
-- In the NIH ChestX-ray14 dataset, 11,885 patients (~38.6%) have multiple X-ray scans taken over time (ranging from 2 up to 184 scans per patient).
-- If scans are randomly assigned to train and test sets by image filename, scans from the **same patient** end up in both training and validation/test sets. The model memorizes patient-specific anatomical features rather than generalizable pathology representations.
-- **Our Solution:** We enforce strict **Patient-Level Grouping**. All scans belonging to a single `Patient ID` are assigned exclusively to either Train (73,916 images / 23,806 patients), Validation (12,608 images / 4,202 patients), or Test (25,596 images / 2,797 patients)—**0 patient overlap**.
+### Scientific Isolation Guidelines
+1. **Validation Set Role:** Used exclusively for monitoring model convergence, hyperparameter selection, and saving the best checkpoint (`best_val_macro_auc = 0.7203` in Experiment 1).
+2. **Official Test Set Role:** Reserved strictly for final evaluation of locked checkpoints against unseen patient cases (25,596 images / 2,797 unique patients from `test_list.txt`).
+3. **Strict Non-Feedback Rule:** Official test-set metrics must **NEVER** be used to select models, adjust hyperparameters, or tune future experiments (such as Experiment 2). This prevents dataset contamination and preserves academic integrity.
 
 ---
 
-## 6. Preprocessing & Augmentation Strategy
+## 5. Preprocessing & Augmentation Strategy
 
 1. **Single-Channel Grayscale Conversion (`.convert('L')`):**
    Converts X-rays to 1-channel intensity maps, avoiding artificial 3-channel RGB memory overhead.
@@ -99,12 +96,12 @@ A critical pitfall in medical image deep learning is **Data Leakage across Patie
    - ColorJitter Brightness & Contrast ($\pm 10\%$)
    - **Horizontal Flip is strictly disabled** to avoid mirroring thoracic anatomy.
 4. **Validation/Testing Transformation:**
-   - Deterministic resizing, tensor conversion, and normalization `(input - 0.5) / 0.5`.
+   - Deterministic resizing, tensor conversion, and normalization `(input - 0.5) / 0.5`. **NO random augmentations.**
 
 ---
 
-## 7. Evaluation & Decision Thresholding
+## 6. Official Test-Set Evaluation Metrics
 
-- **Primary Metric:** **Macro ROC-AUC** across the 14 pathology classes (unweighted mean AUC).
-- **Secondary Metrics:** Per-Class ROC-AUC, Precision, Recall (Sensitivity), Specificity, F1-Score, PR-AUC.
-- **Decision Threshold:** Baseline threshold $T = 0.5$ converts probabilities to binary predictions. Threshold tuning per pathology is reserved for post-baseline experiments.
+- **Primary Metric:** **Macro ROC-AUC** across the 14 pathology classes (unweighted arithmetic mean using `np.nanmean`).
+- **Secondary Metrics:** Per-Class ROC-AUC, Macro & Per-Class PR-AUC, Precision, Recall (Sensitivity), Specificity, F1-Score.
+- **Decision Threshold:** Baseline threshold $T = 0.5$ converts probabilities to binary predictions during test reporting.

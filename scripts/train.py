@@ -1,11 +1,12 @@
 """
-CLI Training Entry Point for MediFusion.
+CLI Training & Evaluation Entry Point for MediFusion.
 
 Supports:
     - Mode 'env-check': Hardware, CUDA, and path resolution diagnostic
     - Mode 'dry-run': Fast 2-iteration pipeline validation on real dataset samples
     - Mode 'exp0': Pipeline sanity check / overfit on small subset (100 images for 5 epochs)
     - Mode 'train': Full baseline scratch training on NIH ChestX-ray14 dataset
+    - Mode 'evaluate': Official test-set evaluation using trained model checkpoint
 """
 
 import sys
@@ -43,7 +44,8 @@ from configs.config import (
     DEVICE,
     USE_AMP,
     OUTPUT_MODELS_DIR,
-    RESULTS_DIR
+    RESULTS_DIR,
+    DEFAULT_THRESHOLD
 )
 from src.utils.seed import set_seed
 from src.data.label_encoder import LabelEncoder
@@ -53,17 +55,18 @@ from src.data.split import build_image_disk_mapping, create_patient_level_splits
 from src.models.medcxrnet import MedCXRNet, count_parameters
 from src.training.loss import get_loss_function
 from src.training.trainer import Trainer
+from src.evaluation.evaluator import Evaluator
 from scripts.cuda_diagnostic import run_cuda_diagnostic
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="MediFusion Training Script")
+    parser = argparse.ArgumentParser(description="MediFusion Training & Evaluation Script")
     parser.add_argument(
         "--mode",
         type=str,
         default="exp0",
-        choices=["env-check", "dry-run", "exp0", "train"],
-        help="Mode: 'env-check' diagnostic, 'dry-run' fast 2-step check, 'exp0' sanity check, 'train' full training."
+        choices=["env-check", "dry-run", "exp0", "train", "evaluate"],
+        help="Mode: 'env-check', 'dry-run', 'exp0', 'train', or 'evaluate'."
     )
     parser.add_argument("--epochs", type=int, default=None, help="Number of training epochs.")
     parser.add_argument("--batch-size", type=int, default=BATCH_SIZE, help="Batch size.")
@@ -71,6 +74,13 @@ def parse_args():
     parser.add_argument("--num-samples", type=int, default=100, help="Number of samples for Experiment 0 or Dry Run.")
     parser.add_argument("--disable-early-stopping", action="store_true", help="Disable early stopping.")
     parser.add_argument("--seed", type=int, default=RANDOM_SEED, help="Random seed.")
+    parser.add_argument(
+        "--checkpoint",
+        type=str,
+        default=str(OUTPUT_MODELS_DIR / "medcxrnet_baseline_best.pth"),
+        help="Path to model checkpoint file for evaluation mode."
+    )
+    parser.add_argument("--threshold", type=float, default=DEFAULT_THRESHOLD, help="Classification decision threshold.")
     return parser.parse_args()
 
 
@@ -85,7 +95,6 @@ def run_dry_run(args):
     set_seed(args.seed)
     label_encoder = LabelEncoder(EXPECTED_PATHOLOGIES)
 
-    # 1. Verify Dataset Paths
     if not METADATA_CSV_PATH.exists():
         raise FileNotFoundError(f"Metadata file not found at '{METADATA_CSV_PATH}'!")
 
@@ -100,7 +109,6 @@ def run_dry_run(args):
         random_seed=args.seed
     )
 
-    # Take 16 real samples for 1 batch iteration
     df_dry = df_train.iloc[:16].reset_index(drop=True)
     dataset = NIHChestXRayDataset(
         df=df_dry,
@@ -111,7 +119,6 @@ def run_dry_run(args):
 
     loader = DataLoader(dataset, batch_size=16, shuffle=False)
 
-    # 2. Instantiate Model, Loss, Optimizer
     model = MedCXRNet().to(DEVICE)
     criterion = get_loss_function(weighted=False)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
@@ -124,7 +131,6 @@ def run_dry_run(args):
     except Exception:
         scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
 
-    # 3. Perform 2 Forward + Backward Iterations
     print(f"[Dry-Run] Executing 2 forward/backward iterations on device '{DEVICE}' (AMP={use_amp})...")
     model.train()
 
@@ -174,7 +180,6 @@ def run_experiment_0(args):
     exp0_dir.mkdir(parents=True, exist_ok=True)
     exp0_models_dir.mkdir(parents=True, exist_ok=True)
 
-    # 1. Load Data
     label_encoder = LabelEncoder(EXPECTED_PATHOLOGIES)
     df_raw = pd.read_csv(METADATA_CSV_PATH)
     image_map = build_image_disk_mapping(str(DATASET_DIR))
@@ -219,7 +224,6 @@ def run_experiment_0(args):
         pin_memory=PIN_MEMORY
     )
 
-    # 2. Model & Loss & Optimizer
     model = MedCXRNet()
     param_counts = count_parameters(model)
     print(f"[Model] MedCXRNet initialized with {param_counts['trainable_parameters']:,} trainable parameters.")
@@ -227,7 +231,6 @@ def run_experiment_0(args):
     criterion = get_loss_function(weighted=False)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=WEIGHT_DECAY)
 
-    # 3. Trainer
     trainer = Trainer(
         model=model,
         train_loader=train_loader,
@@ -271,7 +274,6 @@ def run_full_training(args):
     set_seed(args.seed)
     epochs = args.epochs if args.epochs is not None else NUM_EPOCHS
 
-    # 1. Load Data
     label_encoder = LabelEncoder(EXPECTED_PATHOLOGIES)
     df_raw = pd.read_csv(METADATA_CSV_PATH)
     image_map = build_image_disk_mapping(str(DATASET_DIR))
@@ -315,7 +317,6 @@ def run_full_training(args):
         persistent_workers=PERSISTENT_WORKERS
     )
 
-    # 2. Model & Loss & Optimizer
     model = MedCXRNet()
     param_counts = count_parameters(model)
     print(f"[Model] MedCXRNet initialized with {param_counts['trainable_parameters']:,} trainable parameters.")
@@ -330,7 +331,6 @@ def run_full_training(args):
         patience=SCHEDULER_PATIENCE
     )
 
-    # 3. Trainer
     trainer = Trainer(
         model=model,
         train_loader=train_loader,
@@ -365,6 +365,28 @@ def run_full_training(args):
     print("=" * 70)
 
 
+def run_evaluation(args):
+    """
+    Run Mode 'evaluate': Evaluate model checkpoint against official test set.
+    """
+    print("=" * 70)
+    print(" MediFusion — Official Test-Set Evaluation Mode")
+    print("=" * 70)
+
+    evaluator = Evaluator(
+        checkpoint_path=Path(args.checkpoint),
+        device=DEVICE,
+        use_amp=USE_AMP,
+        threshold=args.threshold,
+        results_dir=RESULTS_DIR
+    )
+
+    evaluator.evaluate_test_set(
+        batch_size=args.batch_size,
+        output_filename="experiment_1_test_results.json"
+    )
+
+
 def main():
     args = parse_args()
     if args.mode == "env-check":
@@ -375,6 +397,8 @@ def main():
         run_experiment_0(args)
     elif args.mode == "train":
         run_full_training(args)
+    elif args.mode == "evaluate":
+        run_evaluation(args)
 
 
 if __name__ == "__main__":
