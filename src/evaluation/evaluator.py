@@ -169,6 +169,19 @@ class Evaluator:
         model, ckpt_meta = self.load_model_from_checkpoint()
         param_counts = count_parameters(model)
 
+        # Infer experiment name and output filename dynamically if not explicitly customized
+        ckpt_exp_name = str(ckpt_meta.get("experiment_name", "")).lower()
+        ckpt_filename = self.checkpoint_path.name.lower()
+        if "exp2" in ckpt_exp_name or "exp2" in ckpt_filename:
+            exp_id = "experiment_2_test_evaluation"
+            default_json = "experiment_2_test_results.json"
+        else:
+            exp_id = "experiment_1_test_evaluation"
+            default_json = "experiment_1_test_results.json"
+
+        if output_filename is None or output_filename == "experiment_1_test_results.json":
+            output_filename = default_json
+
         # 4. Perform Inference under torch.no_grad()
         print(f"[Evaluator] Running deterministic test inference on device '{self.device}' (AMP={self.use_amp})...")
         all_logits = []
@@ -199,7 +212,7 @@ class Evaluator:
 
         # 6. Format Structured Results JSON
         results = {
-            "experiment": "experiment_1_test_evaluation",
+            "experiment": exp_id,
             "checkpoint_path": str(self.checkpoint_path),
             "checkpoint_epoch": ckpt_meta["epoch"],
             "checkpoint_val_macro_auc": ckpt_meta["val_macro_auc"],

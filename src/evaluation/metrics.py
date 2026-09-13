@@ -20,15 +20,17 @@ from configs.config import EXPECTED_PATHOLOGIES, DEFAULT_THRESHOLD
 
 def compute_sigmoid(logits: np.ndarray) -> np.ndarray:
     """
-    Apply Sigmoid activation function to raw unnormalized logits.
+    Apply Sigmoid activation function to raw unnormalized logits in a numerically stable way.
 
     Args:
         logits (np.ndarray): Unnormalized model output array.
 
     Returns:
-        np.ndarray: Probabilities in range [0.0, 1.0].
+        np.ndarray: Probabilities in range [0.0, 1.0] (float32).
     """
-    return 1.0 / (1.0 + np.exp(-np.clip(logits, -88.0, 88.0)))
+    logits_f64 = np.asarray(logits, dtype=np.float64)
+    probs_f64 = 1.0 / (1.0 + np.exp(-np.clip(logits_f64, -500.0, 500.0)))
+    return probs_f64.astype(np.float32)
 
 
 def calculate_multilabel_metrics(

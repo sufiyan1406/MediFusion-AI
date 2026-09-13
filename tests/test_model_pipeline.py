@@ -21,8 +21,8 @@ from PIL import Image
 
 from configs.config import EXPECTED_PATHOLOGIES, IMAGE_SIZE
 from src.models.medcxrnet import MedCXRNet, count_parameters
-from src.training.loss import get_loss_function
-from src.evaluation.metrics import calculate_multilabel_metrics
+from src.training.loss import get_loss_function, compute_class_pos_weights
+from src.evaluation.metrics import calculate_multilabel_metrics, compute_sigmoid
 from src.data.label_encoder import LabelEncoder
 from src.data.transforms import get_baseline_transforms
 from src.data.dataset import NIHChestXRayDataset
@@ -168,3 +168,63 @@ def test_dataloader_model_integration(tmp_path):
         assert images.shape == (2, 1, 224, 224)
         assert targets.shape == (2, 14)
         assert logits.shape == (2, 14)
+
+
+def test_compute_class_pos_weights():
+    """Test J: Verify calculation of pos_weight = negative_count / positive_count from DataFrame."""
+    label_encoder = LabelEncoder(EXPECTED_PATHOLOGIES)
+    records = []
+    # Create 10 dummy samples: 2 positive for Atelectasis (8 negative), 1 positive for Effusion (9 negative)
+    for i in range(10):
+        if i < 2:
+            lbl = "Atelectasis"
+        elif i == 2:
+            lbl = "Effusion"
+        else:
+            lbl = "No Finding"
+        records.append({"Finding Labels": lbl})
+
+    df_dummy = pd.DataFrame(records)
+    pos_weight_tensor, pos_weight_dict, class_counts = compute_class_pos_weights(df_dummy, label_encoder)
+
+    assert pos_weight_tensor.shape == (14,)
+    assert class_counts["Atelectasis"]["positive"] == 2
+    assert class_counts["Atelectasis"]["negative"] == 8
+    assert np.isclose(pos_weight_dict["Atelectasis"], 8.0 / 2.0)
+
+    assert class_counts["Effusion"]["positive"] == 1
+    assert class_counts["Effusion"]["negative"] == 9
+    assert np.isclose(pos_weight_dict["Effusion"], 9.0 / 1.0)
+
+
+def test_weighted_bce_loss_forward_backward():
+    """Test K: Verify Weighted BCEWithLogitsLoss forward and backward pass."""
+    pos_weight = torch.tensor([5.0] * 14, dtype=torch.float32)
+    criterion = get_loss_function(weighted=True, pos_weight=pos_weight)
+
+    model = MedCXRNet()
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
+
+    x = torch.randn(2, 1, 224, 224)
+    targets = torch.randint(0, 2, (2, 14)).float()
+
+    optimizer.zero_grad()
+    logits = model(x)
+    loss = criterion(logits, targets)
+    loss.backward()
+    optimizer.step()
+
+    assert torch.isfinite(loss)
+    assert loss.dim() == 0
+
+
+def test_compute_sigmoid_numerical_stability():
+    """Test L: Verify compute_sigmoid handles extreme logits without raising RuntimeWarning."""
+    extreme_logits = np.array([-1000.0, -100.0, 0.0, 100.0, 1000.0], dtype=np.float32)
+    probs = compute_sigmoid(extreme_logits)
+
+    assert probs.shape == (5,)
+    assert probs[0] == 0.0
+    assert probs[2] == 0.5
+    assert probs[4] == 1.0
+

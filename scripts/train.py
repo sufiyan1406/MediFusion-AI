@@ -53,7 +53,7 @@ from src.data.transforms import get_baseline_transforms, get_train_transforms
 from src.data.dataset import NIHChestXRayDataset
 from src.data.split import build_image_disk_mapping, create_patient_level_splits
 from src.models.medcxrnet import MedCXRNet, count_parameters
-from src.training.loss import get_loss_function
+from src.training.loss import get_loss_function, compute_class_pos_weights
 from src.training.trainer import Trainer
 from src.evaluation.evaluator import Evaluator
 from scripts.cuda_diagnostic import run_cuda_diagnostic
@@ -65,8 +65,8 @@ def parse_args():
         "--mode",
         type=str,
         default="exp0",
-        choices=["env-check", "dry-run", "exp0", "train", "evaluate"],
-        help="Mode: 'env-check', 'dry-run', 'exp0', 'train', or 'evaluate'."
+        choices=["env-check", "dry-run", "exp0", "train", "exp2", "evaluate"],
+        help="Mode: 'env-check', 'dry-run', 'exp0', 'train', 'exp2', or 'evaluate'."
     )
     parser.add_argument("--epochs", type=int, default=None, help="Number of training epochs.")
     parser.add_argument("--batch-size", type=int, default=BATCH_SIZE, help="Batch size.")
@@ -365,6 +365,130 @@ def run_full_training(args):
     print("=" * 70)
 
 
+def run_experiment_2(args):
+    """
+    Run Experiment 2: Class-Imbalance-Aware MedCXRNet Training on Full Dataset.
+    Calculates per-class positive weights pos_weight[c] = negative_count[c] / positive_count[c]
+    strictly from the training split.
+    """
+    print("=" * 70)
+    print(" MediFusion — Experiment 2: Class-Imbalance-Aware Training")
+    print("=" * 70)
+
+    set_seed(args.seed)
+    epochs = args.epochs if args.epochs is not None else NUM_EPOCHS
+
+    label_encoder = LabelEncoder(EXPECTED_PATHOLOGIES)
+    df_raw = pd.read_csv(METADATA_CSV_PATH)
+    image_map = build_image_disk_mapping(str(DATASET_DIR))
+
+    df_train, df_val, _ = create_patient_level_splits(
+        df=df_raw,
+        train_val_list_path=str(TRAIN_VAL_LIST_PATH),
+        test_list_path=str(TEST_LIST_PATH),
+        val_patient_ratio=VAL_PATIENT_RATIO,
+        random_seed=args.seed
+    )
+
+    print(f"\n[Exp2] Calculating per-class positive weights ONLY from training split ({len(df_train)} samples)...")
+    pos_weight_tensor, pos_weight_dict, class_counts_dict = compute_class_pos_weights(
+        df_train=df_train,
+        label_encoder=label_encoder,
+        label_column="Finding Labels"
+    )
+
+    print("-" * 75)
+    print(f" {'Pathology Class':<25} | {'Positive Count':>14} | {'Negative Count':>14} | {'pos_weight':>12}")
+    print("-" * 75)
+    for class_name in EXPECTED_PATHOLOGIES:
+        pos_c = class_counts_dict[class_name]["positive"]
+        neg_c = class_counts_dict[class_name]["negative"]
+        w = pos_weight_dict[class_name]
+        print(f" {class_name:<25} | {pos_c:>14,} | {neg_c:>14,} | {w:>12.4f}")
+    print("-" * 75)
+
+    train_dataset = NIHChestXRayDataset(
+        df=df_train,
+        image_dir_map=image_map,
+        label_encoder=label_encoder,
+        transform=get_train_transforms(IMAGE_SIZE)
+    )
+
+    val_dataset = NIHChestXRayDataset(
+        df=df_val,
+        image_dir_map=image_map,
+        label_encoder=label_encoder,
+        transform=get_baseline_transforms(IMAGE_SIZE)
+    )
+
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=args.batch_size,
+        shuffle=True,
+        num_workers=NUM_WORKERS,
+        pin_memory=PIN_MEMORY,
+        persistent_workers=PERSISTENT_WORKERS
+    )
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=args.batch_size,
+        shuffle=False,
+        num_workers=NUM_WORKERS,
+        pin_memory=PIN_MEMORY,
+        persistent_workers=PERSISTENT_WORKERS
+    )
+
+    model = MedCXRNet()
+    param_counts = count_parameters(model)
+    print(f"[Model] MedCXRNet initialized with {param_counts['trainable_parameters']:,} trainable parameters.")
+
+    criterion = get_loss_function(weighted=True, pos_weight=pos_weight_tensor, device=DEVICE)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=WEIGHT_DECAY)
+
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer,
+        mode="max",
+        factor=SCHEDULER_FACTOR,
+        patience=SCHEDULER_PATIENCE
+    )
+
+    trainer = Trainer(
+        model=model,
+        train_loader=train_loader,
+        val_loader=val_loader,
+        criterion=criterion,
+        optimizer=optimizer,
+        scheduler=scheduler,
+        device=DEVICE,
+        use_amp=USE_AMP,
+        checkpoint_dir=OUTPUT_MODELS_DIR,
+        experiment_name="medcxrnet_exp2"
+    )
+
+    history = trainer.fit(
+        epochs=epochs,
+        early_stopping_patience=EARLY_STOPPING_PATIENCE,
+        disable_early_stopping=args.disable_early_stopping
+    )
+
+    summary_path = RESULTS_DIR / "experiment_2_class_imbalance_results.json"
+    with open(summary_path, "w") as f:
+        json.dump({
+            "experiment": "Experiment 2: Class-Imbalance-Aware MedCXRNet Training",
+            "loss_function": "Weighted BCEWithLogitsLoss",
+            "epochs": epochs,
+            "batch_size": args.batch_size,
+            "learning_rate": args.lr,
+            "param_counts": param_counts,
+            "pos_weights": pos_weight_dict,
+            "class_sample_counts": class_counts_dict,
+            "history": history
+        }, f, indent=4)
+
+    print(f"\n[Experiment 2 SUCCESS] Class-imbalance-aware results exported to '{summary_path}'.")
+    print("=" * 70)
+
+
 def run_evaluation(args):
     """
     Run Mode 'evaluate': Evaluate model checkpoint against official test set.
@@ -382,8 +506,7 @@ def run_evaluation(args):
     )
 
     evaluator.evaluate_test_set(
-        batch_size=args.batch_size,
-        output_filename="experiment_1_test_results.json"
+        batch_size=args.batch_size
     )
 
 
@@ -397,6 +520,8 @@ def main():
         run_experiment_0(args)
     elif args.mode == "train":
         run_full_training(args)
+    elif args.mode == "exp2":
+        run_experiment_2(args)
     elif args.mode == "evaluate":
         run_evaluation(args)
 
