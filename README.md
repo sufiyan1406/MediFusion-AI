@@ -1,15 +1,12 @@
-
 <div align="center">
 
-<img src="medifusion-logo.svg" alt="MediFusion AI Logo" width="220"/>
+<img src="./medifusion-hero.svg"
+     width="100%"
+     alt="MediFusion AI — AI-Assisted Chest X-Ray Abnormality Analysis">
 
-<br/>
+<br><br>
 
-# MediFusion AI
-
-### AI-Assisted Chest X-Ray Abnormality Analysis
-
-<img src="https://readme-typing-svg.demolab.com?font=Inter&weight=600&size=20&duration=2800&pause=900&color=0E7490&center=true&vCenter=true&width=820&lines=Medical+AI+%7C+Computer+Vision+%7C+Deep+Learning;14-Class+Multi-Label+Chest+X-Ray+Analysis;Patient-Level+Evaluation+%7C+Threshold+Optimization;Research-Oriented+AI+Prototype" alt="MediFusion AI animated tagline" />
+<img src="https://readme-typing-svg.demolab.com?font=Inter&weight=600&size=19&duration=2800&pause=900&color=0EA5A8&center=true&vCenter=true&width=760&lines=Medical+AI+%7C+Computer+Vision+%7C+Deep+Learning;14-Class+Chest+X-Ray+Abnormality+Analysis;Validation-Derived+Threshold+Optimization;Research+%26+Educational+Prototype" alt="MediFusion AI">
 
 </div>
 <div align="center">
