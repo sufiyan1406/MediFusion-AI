@@ -1,7 +1,7 @@
 
 <div align="center">
 
-<img src="./medifusion-logo.svg" alt="MediFusion AI Logo" width="220"/>
+<img src="medifusion-logo.svg" alt="MediFusion AI Logo" width="220"/>
 
 <br/>
 
