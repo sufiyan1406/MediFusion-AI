@@ -1,109 +1,52 @@
-# MediFusion — Deep Learning-Based Chest X-Ray Pathology Classification
+<div align="center">
 
-MediFusion is an academic deep learning project focused on multi-label disease detection and abnormality classification from chest radiographs using the NIH ChestX-ray14 dataset.
+# 🩺 MediFusion
 
----
+### AI-Assisted Chest X-Ray Abnormality Analysis
 
-## 📁 Project Architecture & Structure
+<p>
+  <img src="https://readme-typing-svg.demolab.com?font=Inter&weight=600&size=20&duration=2800&pause=900&color=149EAD&center=true&vCenter=true&width=700&lines=Chest+X-Ray+Abnormality+Analysis;14-Class+Multi-Label+Prediction;Validation-Driven+Threshold+Optimization;Research+Prototype+for+Medical+AI" />
+</p>
 
-```
-MediFusion/
-├── DataSet/                      # Existing raw NIH dataset (READ-ONLY)
-│   ├── Data_Entry_2017.csv
-│   ├── BBox_List_2017.csv
-│   ├── train_val_list.txt
-│   ├── test_list.txt
-│   └── images_001 ... images_012
-├── configs/
-│   └── config.py                 # Centralized baseline hyperparameters & paths
-├── docs/
-│   ├── dataset.md                # Empirical dataset inspection report (Step 1)
-│   └── methodology.md            # Multi-label math, MedCXRNet & evaluation workflow
-├── src/
-│   ├── data/
-│   │   ├── dataset.py            # Lazy-loading PyTorch NIHChestXRayDataset
-│   │   ├── label_encoder.py      # Multi-hot 14-class pathology parser
-│   │   ├── split.py              # Patient-level split & leakage validator
-│   │   └── transforms.py         # 1-channel 224x224 grayscale & augmentation
-│   ├── models/
-│   │   └── medcxrnet.py          # Custom 4-stage MedCXRNet CNN (~392K params)
-│   ├── training/
-│   │   ├── loss.py               # BCEWithLogitsLoss factory
-│   │   └── trainer.py            # PyTorch Trainer with AMP & checkpointing
-│   ├── evaluation/
-│   │   ├── evaluator.py          # Official test-set evaluator engine
-│   │   └── metrics.py            # Multi-label Macro & Per-Class ROC-AUC engine
-│   └── utils/
-│       └── seed.py               # Reproducibility random seed setup
-├── scripts/
-│   ├── cuda_diagnostic.py        # Hardware, CUDA & path resolution diagnostic
-│   ├── validate_and_split_data.py # Data validation & split generator
-│   └── train.py                  # CLI entry point (--mode exp0 / train / evaluate)
-├── tests/
-│   ├── test_foundation.py        # 7 foundation unit tests (Passed)
-│   ├── test_kaggle_env.py        # 5 Kaggle environment tests (Passed)
-│   ├── test_model_pipeline.py    # 9 model & pipeline unit tests (Passed)
-│   └── test_evaluation.py        # 5 evaluator unit tests (Passed)
-├── models/
-│   └── medcxrnet_baseline_best.pth # Best trained checkpoint (Val Macro AUC: 0.7203)
-├── reports/
-│   └── results/
-│       ├── dataset_split_statistics.json
-│       ├── experiment_1_baseline_results.json
-│       └── experiment_1_test_results.json (to be generated upon evaluation)
-├── requirements.txt
-├── .gitignore
-└── README.md
-```
+<p>
+  <img src="https://img.shields.io/badge/Python-3.12-3776AB?style=for-the-badge&logo=python&logoColor=white" />
+  <img src="https://img.shields.io/badge/PyTorch-Deep%20Learning-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white" />
+  <img src="https://img.shields.io/badge/NIH-ChestX--ray14-149EAD?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Tests-43%20Passing-2EA44F?style=for-the-badge" />
+</p>
+
+<p>
+  <strong>Research Prototype • Multi-Label Classification • Chest X-Ray Analysis</strong>
+</p>
+
+<br/>
+
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:0B7285,50:149EAD,100:4CC9F0&height=130&section=header&text=MediFusion&fontSize=42&fontColor=FFFFFF&animation=fadeIn&fontAlignY=45" />
+
+</div>
 
 ---
 
-## ⚡ Running Tests & Experiments
+## ⚕️ What is MediFusion?
 
-### 1. Run Unit Test Suite
-Run the complete PyTest test suite (26 unit tests):
-```bash
-python -m pytest tests/ -v
-```
+**MediFusion** is a research-oriented AI system designed to analyze chest X-ray images and generate **model-based abnormality predictions across 14 thoracic pathology classes**.
 
-### 2. Environment & CUDA Hardware Diagnostic
-Run hardware, path resolution, and DataLoader diagnostic:
-```bash
-python scripts/train.py --mode env-check
-```
+The system uses a custom lightweight deep-learning architecture, **MedCXRNet**, trained on the NIH ChestX-ray14 dataset.
 
-### 3. Dry-Run Fast Pipeline Check
-Run 2-step fast GPU/CPU execution verification on real dataset samples:
-```bash
-python scripts/train.py --mode dry-run
-```
+Instead of treating the task as a single "normal vs abnormal" classification problem, MediFusion performs **multi-label classification**, allowing multiple abnormalities to be predicted for the same X-ray.
 
-### 4. Experiment 0 (Sanity Check / Overfit 100 Samples)
-Run 5-epoch sanity check on 100 training samples:
-```bash
-python scripts/train.py --mode exp0 --epochs 5 --num-samples 100
-```
-
-### 5. Experiment 1 (Full Baseline Scratch Training)
-Run full baseline training across the NIH ChestX-ray14 dataset:
-```bash
-python scripts/train.py --mode train --epochs 15 --batch-size 16 --lr 1e-4
-```
-
-### 6. Official Test-Set Evaluation
-Evaluate a trained checkpoint against the official NIH ChestX-ray14 test set (25,596 images / 2,797 patients):
-```bash
-python scripts/train.py --mode evaluate --checkpoint models/medcxrnet_baseline_best.pth
-```
-Output results will be exported to `reports/results/experiment_1_test_results.json`.
+> ⚠️ **Medical Safety Notice**
+>
+> MediFusion is an educational/research prototype.
+> Its outputs are model predictions and **must not be interpreted as medical diagnoses or used for clinical decision-making.**
 
 ---
 
-## 🔬 Workflow & Test Set Isolation Rules
+# 🧠 The Problem
 
-```
-TRAIN (73,916 images) -> VAL (12,608 images) -> LOCK CHECKPOINT -> OFFICIAL TEST (25,596 images)
-```
+Chest X-rays can contain multiple abnormalities simultaneously.
 
-- **Validation Set:** Used exclusively for hyperparameter tuning and model selection (`best_val_macro_auc = 0.7203`).
-- **Official Test Set:** Reserved strictly for final evaluation of locked checkpoints. Test metrics are **NEVER** used to tune future experiments.
+A conventional binary classifier might answer:
+
+```text
+Abnormal: YES
