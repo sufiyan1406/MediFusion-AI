@@ -1,0 +1,458 @@
+<svg width="1200" height="430" viewBox="0 0 1200 430"
+     xmlns="http://www.w3.org/2000/svg">
+
+  <defs>
+
+    <!-- Background -->
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#03111F"/>
+      <stop offset="50%" stop-color="#071C2B"/>
+      <stop offset="100%" stop-color="#020914"/>
+    </linearGradient>
+
+    <!-- Medical gradient -->
+    <linearGradient id="medical" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#67F5E1"/>
+      <stop offset="45%" stop-color="#14B8A6"/>
+      <stop offset="100%" stop-color="#0EA5E9"/>
+    </linearGradient>
+
+    <!-- Text gradient -->
+    <linearGradient id="textGradient" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="45%" stop-color="#D9FFFF"/>
+      <stop offset="100%" stop-color="#35E7D1"/>
+    </linearGradient>
+
+    <!-- Glow -->
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <filter id="softGlow">
+      <feGaussianBlur stdDeviation="14"/>
+    </filter>
+
+    <!-- Lung gradient -->
+    <radialGradient id="lung">
+      <stop offset="0%" stop-color="#DFFFFA"/>
+      <stop offset="45%" stop-color="#61EBD8"/>
+      <stop offset="100%" stop-color="#0EA5A8"/>
+    </radialGradient>
+
+    <!-- Grid -->
+    <pattern id="grid" width="45" height="45"
+             patternUnits="userSpaceOnUse">
+      <path d="M45 0H0V45"
+            fill="none"
+            stroke="#1E5A70"
+            stroke-opacity="0.13"
+            stroke-width="1"/>
+    </pattern>
+
+  </defs>
+
+
+  <!-- ========================= -->
+  <!-- BACKGROUND -->
+  <!-- ========================= -->
+
+  <rect width="1200" height="430" rx="24" fill="url(#bg)"/>
+
+  <rect width="1200" height="430"
+        rx="24"
+        fill="url(#grid)"/>
+
+  <!-- Ambient glow -->
+  <ellipse cx="600" cy="175"
+           rx="310"
+           ry="150"
+           fill="#00E5D0"
+           opacity="0.08"
+           filter="url(#softGlow)">
+    <animate attributeName="opacity"
+             values="0.05;0.12;0.05"
+             dur="4s"
+             repeatCount="indefinite"/>
+  </ellipse>
+
+
+  <!-- ========================= -->
+  <!-- MEDICAL CROSS -->
+  <!-- ========================= -->
+
+  <g transform="translate(600 120)"
+     filter="url(#glow)">
+
+    <path d="
+      M-52 -105
+      Q-52 -122 -35 -122
+      H35
+      Q52 -122 52 -105
+      V-52
+      H105
+      Q122 -52 122 -35
+      V35
+      Q122 52 105 52
+      H52
+      V105
+      Q52 122 35 122
+      H-35
+      Q-52 122 -52 105
+      V52
+      H-105
+      Q-122 52 -122 35
+      V-35
+      Q-122 -52 -105 -52
+      H-52Z"
+      fill="url(#medical)"
+      opacity="0.14"
+      stroke="#48EDE0"
+      stroke-width="3"/>
+
+    <!-- cross inner shine -->
+    <path d="
+      M-35 -105
+      V-35
+      H-105
+      M35 -105
+      V-35
+      H105
+      M-105 35
+      H-35
+      V105
+      M35 105
+      V35
+      H105"
+      fill="none"
+      stroke="#B7FFF6"
+      stroke-opacity="0.25"
+      stroke-width="2"/>
+
+  </g>
+
+
+  <!-- ========================= -->
+  <!-- AI NETWORK -->
+  <!-- ========================= -->
+
+  <g stroke="#46EBDD"
+     stroke-width="1.5"
+     opacity="0.8">
+
+    <path d="M710 55 L770 85 L820 48"/>
+    <path d="M770 85 L845 100 L900 70"/>
+    <path d="M820 48 L900 70"/>
+    <path d="M845 100 L930 125"/>
+    <path d="M900 70 L930 125"/>
+
+  </g>
+
+  <g fill="#6CFFF0" filter="url(#glow)">
+
+    <circle cx="710" cy="55" r="5">
+      <animate attributeName="r"
+               values="4;8;4"
+               dur="2.4s"
+               repeatCount="indefinite"/>
+    </circle>
+
+    <circle cx="770" cy="85" r="7">
+      <animate attributeName="opacity"
+               values="0.4;1;0.4"
+               dur="2s"
+               repeatCount="indefinite"/>
+    </circle>
+
+    <circle cx="820" cy="48" r="6"/>
+
+    <circle cx="845" cy="100" r="5">
+      <animate attributeName="r"
+               values="4;8;4"
+               dur="1.8s"
+               repeatCount="indefinite"/>
+    </circle>
+
+    <circle cx="900" cy="70" r="8"/>
+
+    <circle cx="930" cy="125" r="5"/>
+
+  </g>
+
+
+  <!-- ========================= -->
+  <!-- LUNGS -->
+  <!-- ========================= -->
+
+  <g transform="translate(600 145)"
+     filter="url(#glow)">
+
+    <!-- Trachea -->
+    <path d="M0 -72 V-5"
+          stroke="#D9FFFA"
+          stroke-width="13"
+          stroke-linecap="round"/>
+
+    <!-- Bronchi -->
+    <path d="M0 -5
+             C-20 10 -45 20 -65 38
+             M0 -5
+             C20 10 45 20 65 38"
+          fill="none"
+          stroke="#C9FFF8"
+          stroke-width="7"
+          stroke-linecap="round"/>
+
+    <!-- Left lung -->
+    <path d="
+      M-12 8
+      C-62 5 -112 45 -116 105
+      C-119 158 -90 196 -50 185
+      C-20 177 -7 142 -8 105
+      C-8 70 -7 35 -12 8Z"
+      fill="url(#lung)"
+      opacity="0.92"/>
+
+    <!-- Right lung -->
+    <path d="
+      M12 8
+      C62 5 112 45 116 105
+      C119 158 90 196 50 185
+      C20 177 7 142 8 105
+      C8 70 7 35 12 8Z"
+      fill="url(#lung)"
+      opacity="0.92"/>
+
+    <!-- Lung vessels -->
+    <g fill="none"
+       stroke="#E8FFFC"
+       stroke-width="2"
+       opacity="0.8">
+
+      <path d="M0 0 L-25 55 L-55 90"/>
+      <path d="M0 0 L25 55 L55 90"/>
+
+      <path d="M-25 55 L-70 70"/>
+      <path d="M-25 55 L-45 115"/>
+      <path d="M25 55 L70 70"/>
+      <path d="M25 55 L45 115"/>
+
+      <path d="M-45 115 L-75 145"/>
+      <path d="M45 115 L75 145"/>
+
+    </g>
+
+    <!-- Lung scanning line -->
+    <rect x="-125"
+          y="-5"
+          width="250"
+          height="3"
+          fill="#FFFFFF"
+          opacity="0.7">
+
+      <animate attributeName="y"
+               values="-5;190;-5"
+               dur="3.5s"
+               repeatCount="indefinite"/>
+
+    </rect>
+
+  </g>
+
+
+  <!-- ========================= -->
+  <!-- ORBIT -->
+  <!-- ========================= -->
+
+  <ellipse cx="600"
+           cy="180"
+           rx="270"
+           ry="90"
+           fill="none"
+           stroke="#3DEBDD"
+           stroke-width="4"
+           opacity="0.65"
+           transform="rotate(-10 600 180)"
+           stroke-dasharray="15 12">
+
+    <animateTransform
+      attributeName="transform"
+      type="rotate"
+      from="-10 600 180"
+      to="350 600 180"
+      dur="14s"
+      repeatCount="indefinite"/>
+
+  </ellipse>
+
+
+  <!-- orbit particle -->
+  <circle cx="855"
+          cy="130"
+          r="6"
+          fill="#FFFFFF"
+          filter="url(#glow)">
+
+    <animateTransform
+      attributeName="transform"
+      type="rotate"
+      from="0 600 180"
+      to="360 600 180"
+      dur="7s"
+      repeatCount="indefinite"/>
+
+  </circle>
+
+
+  <!-- ========================= -->
+  <!-- BRAND -->
+  <!-- ========================= -->
+
+  <text x="600"
+        y="325"
+        text-anchor="middle"
+        font-family="Inter,Segoe UI,Arial,sans-serif"
+        font-size="61"
+        font-weight="700"
+        letter-spacing="-2"
+        fill="url(#textGradient)">
+
+    MediFusion AI
+
+  </text>
+
+
+  <!-- small AI pulse -->
+  <circle cx="1005"
+          cy="300"
+          r="5"
+          fill="#5FFFEF"
+          filter="url(#glow)">
+
+    <animate attributeName="r"
+             values="4;9;4"
+             dur="2s"
+             repeatCount="indefinite"/>
+
+  </circle>
+
+
+  <!-- ========================= -->
+  <!-- ECG LINE -->
+  <!-- ========================= -->
+
+  <path d="
+    M260 350
+    H450
+    L475 350
+    L492 350
+    L505 333
+    L518 368
+    L534 350
+    H565
+    L580 350
+    L592 326
+    L606 375
+    L620 350
+    H650
+    L665 350
+    L678 340
+    L690 350
+    H940"
+    fill="none"
+    stroke="#35EBDD"
+    stroke-width="3"
+    filter="url(#glow)"
+    stroke-dasharray="1000"
+    stroke-dashoffset="1000">
+
+    <animate attributeName="stroke-dashoffset"
+             from="1000"
+             to="0"
+             dur="3s"
+             repeatCount="indefinite"/>
+
+  </path>
+
+
+  <!-- ========================= -->
+  <!-- TAGLINE -->
+  <!-- ========================= -->
+
+  <rect x="330"
+        y="370"
+        width="540"
+        height="38"
+        rx="19"
+        fill="#071B29"
+        stroke="#20CFC1"
+        stroke-opacity="0.7"/>
+
+  <text x="600"
+        y="395"
+        text-anchor="middle"
+        font-family="Inter,Segoe UI,Arial,sans-serif"
+        font-size="15"
+        font-weight="500"
+        letter-spacing="2"
+        fill="#C8FFFA">
+
+    AI-Assisted Chest X-Ray Abnormality Analysis
+
+  </text>
+
+
+  <!-- ========================= -->
+  <!-- FLOATING PARTICLES -->
+  <!-- ========================= -->
+
+  <g fill="#6CFFF0">
+
+    <circle cx="120" cy="90" r="2">
+      <animate attributeName="cy"
+               values="90;70;90"
+               dur="4s"
+               repeatCount="indefinite"/>
+    </circle>
+
+    <circle cx="1050" cy="90" r="2">
+      <animate attributeName="cy"
+               values="90;115;90"
+               dur="5s"
+               repeatCount="indefinite"/>
+    </circle>
+
+    <circle cx="170" cy="290" r="3">
+      <animate attributeName="opacity"
+               values="0.2;1;0.2"
+               dur="3s"
+               repeatCount="indefinite"/>
+    </circle>
+
+    <circle cx="1080" cy="270" r="3">
+      <animate attributeName="opacity"
+               values="1;0.2;1"
+               dur="3.5s"
+               repeatCount="indefinite"/>
+    </circle>
+
+  </g>
+
+
+  <!-- subtle border -->
+
+  <rect x="1.5"
+        y="1.5"
+        width="1197"
+        height="427"
+        rx="23"
+        fill="none"
+        stroke="#1F5266"
+        stroke-width="2"
+        opacity="0.7"/>
+
+</svg>
