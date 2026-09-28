@@ -1,7 +1,14 @@
 <div align="center">
 
-<img src="https://capsule-render.vercel.app/api?type=waving&color=0:0B3C5D,45:0E7490,100:14B8A6&height=180&section=header&text=MediFusion%20AI&fontSize=52&fontColor=FFFFFF&fontAlignY=38&desc=AI-Assisted%20Chest%20X-Ray%20Abnormality%20Analysis&descAlignY=62&descSize=18&animation=fadeIn" width="100%" />
+<img src="medifusion-hero.svg"
+     width="100%"
+     alt="MediFusion AI — AI-Assisted Chest X-Ray Abnormality Analysis">
 
+<br><br>
+
+<img src="https://readme-typing-svg.demolab.com?font=Inter&weight=600&size=19&duration=2800&pause=900&color=0EA5A8&center=true&vCenter=true&width=760&lines=Medical+AI+%7C+Computer+Vision+%7C+Deep+Learning;14-Class+Chest+X-Ray+Abnormality+Analysis;Validation-Derived+Threshold+Optimization;Research+%26+Educational+Prototype" alt="MediFusion AI">
+
+</div>
 <br/>
 
 <img src="https://readme-typing-svg.demolab.com?font=Inter&weight=600&size=20&duration=2800&pause=900&color=0E7490&center=true&vCenter=true&width=760&lines=Medical+AI+%7C+Computer+Vision+%7C+Deep+Learning;14-Class+Multi-Label+Chest+X-Ray+Analysis;Patient-Level+Evaluation+%7C+Threshold+Optimization;Research-Oriented+AI+Prototype" alt="MediFusion animated tagline" />
